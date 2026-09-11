@@ -294,11 +294,10 @@
                 }
             }
 
-            statusText.innerText = "Tirinha gerada com sucesso! Toque em salvar.";
+            statusText.innerText = "Tirinha gerada! Processando download automático...";
             video.style.display = 'none';
             startBtn.classList.add('hidden');
             retakeBtn.classList.remove('hidden');
-            saveBtn.classList.remove('hidden');
 
             generatePhotoStrip();
         });
@@ -369,46 +368,25 @@
                     if (imagesLoaded === capturedDataUrls.length) {
                         stripCanvas.style.display = 'block';
                         
-                        // Prepara o arquivo como Blob para compartilhamento nativo no iPad
-                        stripCanvas.toBlob((blob) => {
-                            generatedBlob = blob;
-                        }, 'image/png');
+                        // AUTO-DOWNLOAD: Baixa a foto automaticamente para ativar o atalho do iPad
+                        const link = document.createElement('a');
+                        link.download = 'tirinha-photobooth.png';
+                        link.href = stripCanvas.toDataURL('image/png');
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        
+                        statusText.innerText = "Tirinha concluída e enviada!";
                     }
                 };
                 img.src = dataUrl;
             });
         }
 
-        // Botão otimizado para iOS / iPadOS (abre o menu nativo de compartilhamento para salvar a imagem)
-        saveBtn.addEventListener('click', async () => {
-            if (!generatedBlob) return;
-
-            const file = new File([generatedBlob], 'tirinha-pb-analogico.png', { type: 'image/png' });
-
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                try {
-                    await navigator.share({
-                        files: [file],
-                        title: 'Tirinha Photobooth',
-                        text: 'Minha tirinha de fotos!'
-                    });
-                } catch (error) {
-                    console.log('Compartilhamento cancelado ou não suportado', error);
-                }
-            } else {
-                // Fallback para computadores ou navegadores que não suportam a share API
-                const link = document.createElement('a');
-                link.download = 'tirinha-pb-analogico.png';
-                link.href = URL.createObjectURL(generatedBlob);
-                link.click();
-            }
-        });
-
         retakeBtn.addEventListener('click', () => {
             stripCanvas.style.display = 'none';
             video.style.display = 'block';
             retakeBtn.classList.add('hidden');
-            saveBtn.classList.add('hidden');
             startBtn.classList.remove('hidden');
             startBtn.disabled = false;
             statusText.innerText = "Clique no botão para iniciar a sequência de 4 fotos.";
