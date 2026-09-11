@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Photobooth - Retrô P&B</title>
+    <title>Photobooth - Estilo Filme P&B Analógico</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -170,7 +170,7 @@
 <body>
 
     <div class="container">
-        <h2>Cabine de Fotos Retrô 🎞️</h2>
+        <h2>Cabine de Fotos Retrô P&B 🎞️</h2>
         
         <div class="viewport-wrapper">
             <video id="webcam" autoplay playsinline></video>
@@ -187,7 +187,7 @@
 
         <div class="actions">
             <button id="start-btn">Começar Sequência</button>
-            <button id="download-btn" class="hidden" style="background-color: #2ed573;">Baixar Novamente</button>
+            <button id="save-btn" class="hidden" style="background-color: #2ed573;">Salvar / Compartilhar Tirinha</button>
             <button id="retake-btn" class="hidden" style="background-color: #747d8c;">Tirar Outra</button>
         </div>
 
@@ -199,16 +199,16 @@
         const hiddenCanvas = document.getElementById('hidden-canvas');
         const stripCanvas = document.getElementById('strip-canvas');
         const startBtn = document.getElementById('start-btn');
+        const saveBtn = document.getElementById('save-btn');
         const retakeBtn = document.getElementById('retake-btn');
-        const downloadBtn = document.getElementById('download-btn');
         const countdownOverlay = document.getElementById('countdown-overlay');
         const countdownNum = document.getElementById('countdown-num');
         const statusText = document.getElementById('status-text');
 
         let capturedDataUrls = [];
         let audioCtx = null;
+        let generatedBlob = null;
 
-        // Altere para o nome do seu arquivo de som se necessário
         const audioFileUrl = 'kauasilbershlachparodes-shutter-click-3-494029.mp3'; 
         let shutterAudio = new Audio(audioFileUrl);
 
@@ -294,16 +294,13 @@
                 }
             }
 
-            statusText.innerText = "Tirinha gerada e salva com sucesso!";
+            statusText.innerText = "Tirinha gerada com sucesso! Toque em salvar.";
             video.style.display = 'none';
             startBtn.classList.add('hidden');
             retakeBtn.classList.remove('hidden');
-            downloadBtn.classList.remove('hidden');
+            saveBtn.classList.remove('hidden');
 
             generatePhotoStrip();
-
-            // Dispara o download automático da tirinha direto para o iPad
-            triggerAutoDownload();
         });
 
         function captureFrameWithAnalogBWFilter() {
@@ -371,28 +368,47 @@
                     imagesLoaded++;
                     if (imagesLoaded === capturedDataUrls.length) {
                         stripCanvas.style.display = 'block';
+                        
+                        // Prepara o arquivo como Blob para compartilhamento nativo no iPad
+                        stripCanvas.toBlob((blob) => {
+                            generatedBlob = blob;
+                        }, 'image/png');
                     }
                 };
                 img.src = dataUrl;
             });
         }
 
-        function triggerAutoDownload() {
-            const link = document.createElement('a');
-            link.download = 'tirinha-pb-analogico.png';
-            link.href = stripCanvas.toDataURL('image/png');
-            link.click();
-        }
+        // Botão otimizado para iOS / iPadOS (abre o menu nativo de compartilhamento para salvar a imagem)
+        saveBtn.addEventListener('click', async () => {
+            if (!generatedBlob) return;
 
-        downloadBtn.addEventListener('click', () => {
-            triggerAutoDownload();
+            const file = new File([generatedBlob], 'tirinha-pb-analogico.png', { type: 'image/png' });
+
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        files: [file],
+                        title: 'Tirinha Photobooth',
+                        text: 'Minha tirinha de fotos!'
+                    });
+                } catch (error) {
+                    console.log('Compartilhamento cancelado ou não suportado', error);
+                }
+            } else {
+                // Fallback para computadores ou navegadores que não suportam a share API
+                const link = document.createElement('a');
+                link.download = 'tirinha-pb-analogico.png';
+                link.href = URL.createObjectURL(generatedBlob);
+                link.click();
+            }
         });
 
         retakeBtn.addEventListener('click', () => {
             stripCanvas.style.display = 'none';
             video.style.display = 'block';
             retakeBtn.classList.add('hidden');
-            downloadBtn.classList.add('hidden');
+            saveBtn.classList.add('hidden');
             startBtn.classList.remove('hidden');
             startBtn.disabled = false;
             statusText.innerText = "Clique no botão para iniciar a sequência de 4 fotos.";
