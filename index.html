@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Photobooth - Estilo Filme P&B Analógico</title>
+    <title>Photobooth - Retrô P&B</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -47,7 +47,7 @@
             width: 100%;
             height: auto;
             display: block;
-            transform: scaleX(-1); /* Espelha a câmera */
+            transform: scaleX(-1);
         }
 
         canvas {
@@ -165,35 +165,12 @@
             font-size: 14px;
             color: #a4b0be;
         }
-
-        @media print {
-            body {
-                background: white;
-                color: black;
-                display: block;
-            }
-            .container > *:not(#strip-canvas) {
-                display: none !important;
-            }
-            .container {
-                background: none;
-                box-shadow: none;
-                padding: 0;
-                margin: 0;
-            }
-            #strip-canvas {
-                display: block !important;
-                margin: 0 auto;
-                max-height: 100vh;
-                width: auto;
-            }
-        }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h2>Cabine de Fotos Retrô P&B 🎞️</h2>
+        <h2>Cabine de Fotos Retrô 🎞️</h2>
         
         <div class="viewport-wrapper">
             <video id="webcam" autoplay playsinline></video>
@@ -210,8 +187,7 @@
 
         <div class="actions">
             <button id="start-btn">Começar Sequência</button>
-            <button id="print-btn" class="hidden" style="background-color: #4b6584;">Imprimir Novamente</button>
-            <button id="download-btn" class="hidden" style="background-color: #2ed573;">Baixar Tirinha</button>
+            <button id="download-btn" class="hidden" style="background-color: #2ed573;">Baixar Novamente</button>
             <button id="retake-btn" class="hidden" style="background-color: #747d8c;">Tirar Outra</button>
         </div>
 
@@ -223,7 +199,6 @@
         const hiddenCanvas = document.getElementById('hidden-canvas');
         const stripCanvas = document.getElementById('strip-canvas');
         const startBtn = document.getElementById('start-btn');
-        const printBtn = document.getElementById('print-btn');
         const retakeBtn = document.getElementById('retake-btn');
         const downloadBtn = document.getElementById('download-btn');
         const countdownOverlay = document.getElementById('countdown-overlay');
@@ -233,7 +208,7 @@
         let capturedDataUrls = [];
         let audioCtx = null;
 
-        // >>> CERTIFIQUE-SE DE QUE O SEU ÁUDIO ESTÁ NA MESMA PASTA E COM ESTE NOME <<<
+        // Altere para o nome do seu arquivo de som se necessário
         const audioFileUrl = 'kauasilbershlachparodes-shutter-click-3-494029.mp3'; 
         let shutterAudio = new Audio(audioFileUrl);
 
@@ -243,7 +218,6 @@
             }
         }
 
-        // Som de bip agudo clássico de projetor para a contagem
         function playProjectorBeep() {
             if (!audioCtx) return;
             try {
@@ -262,7 +236,6 @@
             }
         }
 
-        // Reproduz o seu arquivo de áudio personalizado no momento da foto
         function playCustomShutterSound() {
             try {
                 shutterAudio.currentTime = 0; 
@@ -313,7 +286,6 @@
                 await sleep(300);
                 countdownOverlay.classList.remove('active');
 
-                // Aplica o filtro de Preto e Branco Analógico de Alto Contraste
                 const dataUrl = captureFrameWithAnalogBWFilter();
                 capturedDataUrls.push(dataUrl);
 
@@ -322,18 +294,16 @@
                 }
             }
 
-            statusText.innerText = "Tirinha gerada e enviada para impressão!";
+            statusText.innerText = "Tirinha gerada e salva com sucesso!";
             video.style.display = 'none';
             startBtn.classList.add('hidden');
             retakeBtn.classList.remove('hidden');
             downloadBtn.classList.remove('hidden');
-            printBtn.classList.remove('hidden');
 
             generatePhotoStrip();
 
-            setTimeout(() => {
-                window.print();
-            }, 500);
+            // Dispara o download automático da tirinha direto para o iPad
+            triggerAutoDownload();
         });
 
         function captureFrameWithAnalogBWFilter() {
@@ -353,23 +323,15 @@
                 let g = pixels[i + 1];
                 let b = pixels[i + 2];
 
-                // Conversão padrão para escala de cinza focada na luminância humana
                 let gray = 0.299 * r + 0.587 * g + 0.114 * b;
-
-                // Aumento de contraste acentuado (estilo filme químico preto e branco)
-                // O fator 1.4 puxa os pretos para mais escuro e os brancos para mais claro
                 gray = (gray - 128) * 1.4 + 128;
-
-                // Adiciona granulação fina de filme analógico (grão característico)
                 let noise = (Math.random() - 0.5) * 32;
                 gray += noise;
-
-                // Limita os valores entre 0 e 255
                 gray = Math.min(255, Math.max(0, gray));
 
-                pixels[i]     = gray; // Vermelho
-                pixels[i + 1] = gray; // Verde
-                pixels[i + 2] = gray; // Azul
+                pixels[i]     = gray;
+                pixels[i + 1] = gray;
+                pixels[i + 2] = gray;
             }
 
             context.putImageData(imgData, 0, 0);
@@ -385,7 +347,6 @@
             stripCanvas.width = stripWidth;
             stripCanvas.height = stripHeight;
 
-            // Fundo da tira e divisórias em preto fosco clássico de filme
             ctx.fillStyle = '#0a0a0a';
             ctx.fillRect(0, 0, stripWidth, stripHeight);
 
@@ -416,15 +377,15 @@
             });
         }
 
-        printBtn.addEventListener('click', () => {
-            window.print();
-        });
-
-        downloadBtn.addEventListener('click', () => {
+        function triggerAutoDownload() {
             const link = document.createElement('a');
             link.download = 'tirinha-pb-analogico.png';
             link.href = stripCanvas.toDataURL('image/png');
             link.click();
+        }
+
+        downloadBtn.addEventListener('click', () => {
+            triggerAutoDownload();
         });
 
         retakeBtn.addEventListener('click', () => {
@@ -432,7 +393,6 @@
             video.style.display = 'block';
             retakeBtn.classList.add('hidden');
             downloadBtn.classList.add('hidden');
-            printBtn.classList.add('hidden');
             startBtn.classList.remove('hidden');
             startBtn.disabled = false;
             statusText.innerText = "Clique no botão para iniciar a sequência de 4 fotos.";
