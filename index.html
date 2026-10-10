@@ -1,48 +1,202 @@
-        function generatePhotoStrip() {
-            const ctx = stripCanvas.getContext('2d');
-            const stripWidth = 560;   
-            const stripHeight = 1500; 
-            
-            stripCanvas.width = stripWidth;
-            stripCanvas.height = stripHeight;
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Photobooth Vintage</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Courier New', Courier, monospace;
+    }
 
-            ctx.fillStyle = '#0a0a0a';
-            ctx.fillRect(0, 0, stripWidth, stripHeight);
+    body {
+      background-color: #121212;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
 
-            const borderSize = 10; 
-            const availableWidth = stripWidth - (borderSize * 2);
-            const availableHeight = stripHeight - (borderSize * 2);
-            
-            const gap = borderSize; 
-            const totalGaps = gap * 3;
-            const imgHeight = (availableHeight - totalGaps) / 4; 
-            const imgWidth = availableWidth;
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      max-width: 500px;
+      width: 100%;
+    }
 
-            let imagesLoaded = 0;
+    .camera-box {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      background: #000;
+      border: 4px solid #333;
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
-            capturedDataUrls.forEach((dataUrl, index) => {
-                const img = new Image();
-                img.onload = () => {
-                    const x = borderSize;
-                    const y = borderSize + (index * (imgHeight + gap));
-                    ctx.drawImage(img, x, y, imgWidth, imgHeight);
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1); /* Espelhamento da câmera */
+      filter: grayscale(100%) contrast(120%);
+    }
 
-                    imagesLoaded++;
-                    if (imagesLoaded === capturedDataUrls.length) {
-                        stripCanvas.style.display = 'block';
-                        
-                        // Copia a tirinha diretamente para a área de transferência do iPad
-                        stripCanvas.toBlob(async (blob) => {
-                            try {
-                                const data = [new ClipboardItem({ [blob.type]: blob })];
-                                await navigator.clipboard.write(data);
-                                statusText.innerText = "Tirinha copiada! Imprimindo...";
-                            } catch (err) {
-                                console.error("Erro ao copiar imagem: ", err);
-                            }
-                        });
-                    }
-                };
-                img.src = dataUrl;
-            });
-        }
+    .countdown-overlay {
+      position: absolute;
+      font-size: 6rem;
+      font-weight: bold;
+      color: #fff;
+      text-shadow: 0 0 20px rgba(0,0,0,0.8);
+      display: none;
+    }
+
+    button {
+      background-color: #fff;
+      color: #000;
+      border: none;
+      padding: 15px 30px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 5px;
+      letter-spacing: 1px;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background-color: #ddd;
+    }
+
+    button:disabled {
+      background-color: #555;
+      cursor: not-allowed;
+    }
+
+    /* Estilo da tirinha para exibição na tela e impressão */
+    #strip-container {
+      margin-top: 20px;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 4px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    }
+
+    .strip {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: #fff;
+      padding: 10px;
+      width: 240px;
+    }
+
+    .strip img {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
+      filter: grayscale(100%) contrast(125%);
+    }
+
+    .strip-footer {
+      color: #000;
+      text-align: center;
+      font-size: 0.8rem;
+      margin-top: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    canvas {
+      display: none;
+    }
+
+    /* Configurações específicas para impressão */
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #strip-container, #strip-container * {
+        visibility: visible;
+      }
+      #strip-container {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="camera-box">
+      <video id="webcam" autoplay playsinline></video>
+      <div id="countdown" class="countdown-overlay">3</div>
+    </div>
+
+    <button id="start-btn">TIRAR FOTOS</button>
+
+    <div id="strip-container">
+      <div class="strip" id="photo-strip">
+        <!-- As fotos capturadas serão inseridas aqui dinamicamente -->
+      </div>
+      <div class="strip-footer">PHOTOBOOTH • <span id="strip-date"></span></div>
+    </div>
+  </div>
+
+  <canvas id="canvas"></canvas>
+  <audio id="shutter-sound" src="1.mp3" preload="auto"></audio>
+
+  <script>
+    const video = document.getElementById('webcam');
+    const canvas = document.getElementById('canvas');
+    const startBtn = document.getElementById('start-btn');
+    const countdownEl = document.getElementById('countdown');
+    const stripContainer = document.getElementById('strip-container');
+    const photoStrip = document.getElementById('photo-strip');
+    const shutterSound = document.getElementById('shutter-sound');
+    const stripDate = document.getElementById('strip-date');
+
+    const TOTAL_PHOTOS = 4;
+    const COUNTDOWN_SECONDS = 3;
+
+    // Inicializa acesso à câmera
+    async function initCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { width: { ideal: 1280 }, height: { ideal: 960 }, facingMode: "user" }, 
+          audio: false 
+        });
+        video.srcObject = stream;
+      } catch (err) {
+        alert("Erro ao acessar a câmera: " + err.message);
+      }
+    }
+
+    function playShutterSound() {
+      shutterSound.currentTime = 0;
+      shutterSound.play().catch(() => {});
+    }
+
+    function capturePhoto() {
+      const context = canvas.getContext('2d');
+      canvas.width = video.videoWidth || 6
